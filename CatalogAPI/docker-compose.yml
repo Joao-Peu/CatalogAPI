@@ -1,0 +1,19 @@
+version: '3.8'
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "15672:15672"
+      - "5672:5672"
+  catalogapi:
+    build: .
+    depends_on:
+      - rabbitmq
+    environment:
+      - RABBITMQ__HOST=rabbitmq
+      - RABBITMQ__VIRTUALHOST=/
+      - RABBITMQ__USERNAME=guest
+      - RABBITMQ__PASSWORD=guest
+      - JWT__KEY=very_secret_demo_key_please_change
+    ports:
+      - "5000:80"

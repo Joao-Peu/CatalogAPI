@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: catalogapi
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: catalogapi
+  template:
+    metadata:
+      labels:
+        app: catalogapi
+    spec:
+      containers:
+        - name: catalogapi
+          image: yourrepo/catalogapi:latest
+          ports:
+            - containerPort: 80
+          env:
+            - name: RABBITMQ__HOST
+              value: "rabbitmq"
+            - name: RABBITMQ__VIRTUALHOST
+              value: "/"
+            - name: RABBITMQ__USERNAME
+              value: "guest"
+            - name: RABBITMQ__PASSWORD
+              value: "guest"
+            - name: JWT__KEY
+              valueFrom:
+                secretKeyRef:
+                  name: jwt-secret
+                  key: key
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: catalogapi
+spec:
+  selector:
+    app: catalogapi
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+  type: ClusterIP
