@@ -1,0 +1,42 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
+using CatalogAPI.Infrastructure.Persistence;
+
+#nullable disable
+
+namespace CatalogAPI.Infrastructure.Persistence.Migrations
+{
+    [DbContext(typeof(CatalogDbContext))]
+    [Migration("202601180001_InitialCreate")]
+    partial class InitialCreate
+    {
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
+        {
+#pragma warning disable 612, 618
+            modelBuilder.HasAnnotation("ProductVersion", "8.0.0");
+
+            modelBuilder.Entity("CatalogAPI.Domain.Entities.Game", b =>
+            {
+                b.Property<Guid>("Id").HasColumnType("uniqueidentifier");
+                b.Property<string>("Description").IsRequired().HasMaxLength(2000).HasColumnType("nvarchar(2000)");
+                b.Property<decimal>("Price").HasColumnType("decimal(18,2)");
+                b.Property<string>("Title").IsRequired().HasMaxLength(200).HasColumnType("nvarchar(200)");
+                b.HasKey("Id");
+                b.ToTable("Games");
+            });
+
+            modelBuilder.Entity("CatalogAPI.Domain.Entities.UserLibraryEntry", b =>
+            {
+                b.Property<Guid>("Id").HasColumnType("uniqueidentifier");
+                b.Property<DateTime>("CreatedAt").HasColumnType("datetime2");
+                b.Property<Guid>("GameId").HasColumnType("uniqueidentifier");
+                b.Property<Guid>("UserId").HasColumnType("uniqueidentifier");
+                b.HasKey("Id");
+                b.HasIndex("UserId", "GameId").IsUnique();
+                b.ToTable("UserLibrary");
+            });
+#pragma warning restore 612, 618
+        }
+    }
+}

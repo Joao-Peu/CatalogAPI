@@ -4,7 +4,15 @@
       "commandName": "Project",
       "launchBrowser": true,
       "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development"
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "RABBITMQ__HOST": "localhost",
+        "RABBITMQ__VIRTUALHOST": "/",
+        "RABBITMQ__USERNAME": "guest",
+        "RABBITMQ__PASSWORD": "guest",
+        "ConnectionStrings__CatalogDb": "Server=localhost,14332;Database=CatalogDb;User Id=sa;Password=StrongPassword!123;TrustServerCertificate=True;",
+        //"JWT__Key": "change_me_in_dev_only",
+        //"JWT__Issuer": "CatalogAPI",
+        //"JWT__Audience": "CatalogAPI.Clients"
       },
       "applicationUrl": "https://localhost:60923;http://localhost:60924"
     }
