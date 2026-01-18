@@ -10,7 +10,7 @@
         "RABBITMQ__USERNAME": "guest",
         "RABBITMQ__PASSWORD": "guest",
         "ConnectionStrings__CatalogDb": "Server=localhost,14332;Database=CatalogDb;User Id=sa;Password=StrongPassword!123;TrustServerCertificate=True;",
-        //"JWT__Key": "change_me_in_dev_only",
+        "JWT__Key": "Q7KcQm8B+8p4zZP0P5B9GZzQ3T6z0sZq6GQ0m2ZP9Ys="
         //"JWT__Issuer": "CatalogAPI",
         //"JWT__Audience": "CatalogAPI.Clients"
       },

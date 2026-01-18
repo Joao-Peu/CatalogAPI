@@ -21,16 +21,17 @@ string Require(string key)
 }
 
 // Configuration (environment variables / appsettings)
-var rabbitHost = Require("RABBITMQ:Host");
-var rabbitVHost = builder.Configuration["RABBITMQ:VirtualHost"] ?? "/"; // vhost can have a safe default
-var rabbitUser = Require("RABBITMQ:Username");
-var rabbitPass = Require("RABBITMQ:Password");
+var rabbitUser =  Environment.GetEnvironmentVariable("RABBITMQ__USERNAME") ??Require("RabbitMQ:UserName");
+var rabbitVHost =  Environment.GetEnvironmentVariable("RABBITMQ__VIRTUALHOST") ?? builder.Configuration["RabbitMQ:VirtualHost"] ?? "/";
+var rabbitHost = Environment.GetEnvironmentVariable("RABBITMQ__HOST") ?? Require("RabbitMQ:HostName");
+var rabbitPass = Environment.GetEnvironmentVariable("RABBITMQ__PASSWORD") ?? Require("RabbitMQ:Password");
 
 // JWT key must be provided via configuration; never default to a hardcoded key
-var jwtKey = Require("JWT:Key");
+var jwtKey = Require("Jwt:Key");
 
 // Connection string must be provided via configuration; avoid hardcoded defaults
-var connectionString = builder.Configuration.GetConnectionString("CatalogDb")
+var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__CatalogDb") 
+    ?? builder.Configuration.GetConnectionString("CatalogDb")
     ?? builder.Configuration["ConnectionStrings:CatalogDb"]
     ?? throw new InvalidOperationException("Missing ConnectionStrings:CatalogDb. Set it via appsettings or environment variables.");
 
@@ -92,10 +93,7 @@ builder.Services.AddMassTransit(x =>
             h.Password(rabbitPass);
         });
 
-        cfg.ReceiveEndpoint("payment_processed_queue", e =>
-        {
-            e.ConfigureConsumer<PaymentProcessedConsumer>(context);
-        });
+        cfg.ConfigureEndpoints(context);
     });
 });
 
@@ -114,12 +112,12 @@ builder.Services.AddAuthentication(options =>
     {
         ValidateIssuerSigningKey = true,
         IssuerSigningKey = new SymmetricSecurityKey(key),
-        ValidateIssuer = true,
-        ValidateAudience = true,
+        ValidateIssuer = false,
+        ValidateAudience = false,
         ValidateLifetime = true,
         ClockSkew = TimeSpan.FromMinutes(2),
-        ValidIssuer = builder.Configuration["JWT:Issuer"],
-        ValidAudience = builder.Configuration["JWT:Audience"]
+        //ValidIssuer = builder.Configuration["JWT:Issuer"],
+        //ValidAudience = builder.Configuration["JWT:Audience"]
     };
 });
 
