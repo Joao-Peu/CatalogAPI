@@ -1,9 +1,11 @@
 using CatalogAPI.Application.Services;
 using CatalogAPI.Domain.Entities;
-using CatalogAPI.Domain.Events;
 using MassTransit;
+using Microsoft.AspNetCore.Authentication.OAuth.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 
 namespace CatalogAPI.Controllers;
 
@@ -58,11 +60,22 @@ public class GamesController : ControllerBase
         return NoContent();
     }
 
-    [HttpPost("{id}/order")]
+    [HttpPost("{gameId}/order")]
     [Authorize]
-    public async Task<IActionResult> PlaceOrder(Guid id, [FromQuery] Guid userId)
+    public async Task<IActionResult> PlaceOrder(Guid gameId)
     {
-        await _service.PlaceOrderAsync(userId, id);
+        var user = User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+        if (Guid.TryParse(user, out var userId))
+        {
+            return Unauthorized();
+        }
+
+        var orderResult = await _service.PlaceOrderAsync(userId, gameId);
+        if (!orderResult.IsSuccess)
+        {
+            return BadRequest(orderResult.Error);
+        }   
+
         return Accepted();
     }
 }

@@ -1,5 +1,5 @@
 using CatalogAPI.Application.Services;
-using CatalogAPI.Domain.Events;
+using CatalogAPI.Shared.Events;
 using MassTransit;
 
 namespace CatalogAPI.Infrastructure.Consumers;

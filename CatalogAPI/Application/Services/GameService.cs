@@ -1,7 +1,9 @@
+using CatalogAPI.Application.Abstractions;
 using CatalogAPI.Domain.Entities;
-using CatalogAPI.Domain.Events;
 using CatalogAPI.Infrastructure.Repositories;
+using CatalogAPI.Shared.Events;
 using MassTransit;
+using Shared.Events;
 
 namespace CatalogAPI.Application.Services;
 
@@ -33,13 +35,18 @@ public class GameService
 
     public async Task DeleteAsync(Guid id) => await _gameRepo.DeleteAsync(id);
 
-    public async Task PlaceOrderAsync(Guid userId, Guid gameId)
+    public async Task<Result> PlaceOrderAsync(Guid userId, Guid gameId)
     {
         var game = await _gameRepo.GetAsync(gameId);
-        if (game == null) throw new Exception("Game not found");
+        if (game == null)
+        {
+            return new Error("game_not_found", "O jogo especificado não existe.");
+        }
 
         var evt = new OrderPlacedEvent(userId, gameId, game.Price);
         await _publisher.Publish(evt);
+
+        return Result.Success();
     }
 
     public async Task HandlePaymentProcessedAsync(PaymentProcessedEvent e)
