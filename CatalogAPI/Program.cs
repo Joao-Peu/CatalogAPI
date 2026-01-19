@@ -90,7 +90,10 @@ builder.Services.AddMassTransit(x =>
             h.Password(rabbitMQSettings.Password);
         });
 
-        cfg.ConfigureEndpoints(context);
+        cfg.ReceiveEndpoint("catalog-payment-processed", e =>
+        {
+            e.ConfigureConsumer<PaymentProcessedConsumer>(context);
+        });
     });
 });
 
