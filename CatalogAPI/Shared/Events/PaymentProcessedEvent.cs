@@ -1,3 +1,3 @@
-namespace CatalogAPI.Shared.Events;
+namespace Shared.Events;
 
-public record PaymentProcessedEvent(Guid UserId, Guid GameId, decimal Price, string Status);
+public record PaymentProcessedEvent(Guid OrderId, Guid UserId, Guid GameId, decimal Price, string Status);

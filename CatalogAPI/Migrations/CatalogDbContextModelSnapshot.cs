@@ -46,6 +46,26 @@ namespace CatalogAPI.Migrations
                     b.ToTable("Games");
                 });
 
+            modelBuilder.Entity("CatalogAPI.Domain.Entities.OrderGame", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("GameId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsProcessed")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("OrderGames");
+                });
+
             modelBuilder.Entity("CatalogAPI.Domain.Entities.UserLibraryEntry", b =>
                 {
                     b.Property<Guid>("Id")
@@ -66,7 +86,7 @@ namespace CatalogAPI.Migrations
                     b.HasIndex("UserId", "GameId")
                         .IsUnique();
 
-                    b.ToTable("UserLibrary");
+                    b.ToTable("UserLibraries");
                 });
 #pragma warning restore 612, 618
         }

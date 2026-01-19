@@ -1,3 +1,3 @@
 ﻿namespace Shared.Events;
 
-public record OrderPlacedEvent(Guid UserId, Guid GameId, decimal Price);
+public record OrderPlacedEvent(Guid OrderId, Guid UserId, Guid GameId, decimal Price);

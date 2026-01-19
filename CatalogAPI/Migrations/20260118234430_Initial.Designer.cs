@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CatalogAPI.Migrations
 {
     [DbContext(typeof(CatalogDbContext))]
-    [Migration("20260118213525_Initial")]
+    [Migration("20260118234430_Initial")]
     partial class Initial
     {
         /// <inheritdoc />
@@ -49,6 +49,26 @@ namespace CatalogAPI.Migrations
                     b.ToTable("Games");
                 });
 
+            modelBuilder.Entity("CatalogAPI.Domain.Entities.OrderGame", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("GameId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsProcessed")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("OrderGames");
+                });
+
             modelBuilder.Entity("CatalogAPI.Domain.Entities.UserLibraryEntry", b =>
                 {
                     b.Property<Guid>("Id")
@@ -69,7 +89,7 @@ namespace CatalogAPI.Migrations
                     b.HasIndex("UserId", "GameId")
                         .IsUnique();
 
-                    b.ToTable("UserLibrary");
+                    b.ToTable("UserLibraries");
                 });
 #pragma warning restore 612, 618
         }

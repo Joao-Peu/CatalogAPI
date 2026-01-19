@@ -3,12 +3,11 @@ using Microsoft.EntityFrameworkCore;
 
 namespace CatalogAPI.Infrastructure.Persistence;
 
-public class CatalogDbContext : DbContext
+public class CatalogDbContext(DbContextOptions<CatalogDbContext> options) : DbContext(options)
 {
-    public CatalogDbContext(DbContextOptions<CatalogDbContext> options) : base(options) { }
-
     public DbSet<Game> Games => Set<Game>();
-    public DbSet<UserLibraryEntry> UserLibrary => Set<UserLibraryEntry>();
+    public DbSet<UserLibraryEntry> UserLibraries => Set<UserLibraryEntry>();
+    public DbSet<OrderGame> OrderGames => Set<OrderGame>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -25,6 +24,14 @@ public class CatalogDbContext : DbContext
         {
             e.HasKey(x => x.Id);
             e.HasIndex(x => new { x.UserId, x.GameId }).IsUnique();
+        });
+
+        modelBuilder.Entity<OrderGame>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.UserId).IsRequired();
+            e.Property(x => x.GameId).IsRequired();
+            e.Property(x => x.IsProcessed);
         });
     }
 }

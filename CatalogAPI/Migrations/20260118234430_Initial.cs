@@ -26,7 +26,21 @@ namespace CatalogAPI.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "UserLibrary",
+                name: "OrderGames",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    UserId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    GameId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    IsProcessed = table.Column<bool>(type: "bit", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_OrderGames", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "UserLibraries",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
@@ -36,12 +50,12 @@ namespace CatalogAPI.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_UserLibrary", x => x.Id);
+                    table.PrimaryKey("PK_UserLibraries", x => x.Id);
                 });
 
             migrationBuilder.CreateIndex(
-                name: "IX_UserLibrary_UserId_GameId",
-                table: "UserLibrary",
+                name: "IX_UserLibraries_UserId_GameId",
+                table: "UserLibraries",
                 columns: new[] { "UserId", "GameId" },
                 unique: true);
         }
@@ -53,7 +67,10 @@ namespace CatalogAPI.Migrations
                 name: "Games");
 
             migrationBuilder.DropTable(
-                name: "UserLibrary");
+                name: "OrderGames");
+
+            migrationBuilder.DropTable(
+                name: "UserLibraries");
         }
     }
 }

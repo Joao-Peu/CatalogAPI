@@ -74,8 +74,9 @@ builder.Services.AddDbContext<CatalogDbContext>(options =>
     options.UseSqlServer(connectionString));
 
 // Repositories (EF Core)
-builder.Services.AddScoped<IGameRepository, EfGameRepository>();
-builder.Services.AddScoped<IUserLibraryRepository, EfUserLibraryRepository>();
+builder.Services.AddScoped<IGameRepository, GameRepository>();
+builder.Services.AddScoped<IUserLibraryRepository, UserLibraryRepository>();
+builder.Services.AddScoped<IOrderGameRepository, OrderGameRepository>();
 
 // Application services
 builder.Services.AddScoped<GameService>();
@@ -106,7 +107,7 @@ builder.Services.AddAuthentication(options =>
 })
 .AddJwtBearer(options =>
 {
-    options.RequireHttpsMetadata = true; // enforce HTTPS for tokens
+    options.RequireHttpsMetadata = true;
     options.SaveToken = true;
     options.TokenValidationParameters = new TokenValidationParameters
     {
@@ -116,8 +117,6 @@ builder.Services.AddAuthentication(options =>
         ValidateAudience = false,
         ValidateLifetime = true,
         ClockSkew = TimeSpan.FromMinutes(2),
-        //ValidIssuer = builder.Configuration["JWT:Issuer"],
-        //ValidAudience = builder.Configuration["JWT:Audience"]
     };
 });
 

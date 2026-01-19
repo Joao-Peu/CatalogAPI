@@ -64,8 +64,8 @@ public class GamesController : ControllerBase
     [Authorize]
     public async Task<IActionResult> PlaceOrder(Guid gameId)
     {
-        var user = User.FindFirstValue(JwtRegisteredClaimNames.Sub);
-        if (Guid.TryParse(user, out var userId))
+        var user = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!Guid.TryParse(user, out var userId))
         {
             return Unauthorized();
         }
