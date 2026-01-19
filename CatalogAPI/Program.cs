@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
+using UsersAPI.Infrastructure.RabbitMQ;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -20,11 +21,6 @@ string Require(string key)
     return value;
 }
 
-// Configuration (environment variables / appsettings)
-var rabbitUser =  Environment.GetEnvironmentVariable("RABBITMQ__USERNAME") ??Require("RabbitMQ:UserName");
-var rabbitVHost =  Environment.GetEnvironmentVariable("RABBITMQ__VIRTUALHOST") ?? builder.Configuration["RabbitMQ:VirtualHost"] ?? "/";
-var rabbitHost = Environment.GetEnvironmentVariable("RABBITMQ__HOST") ?? Require("RabbitMQ:HostName");
-var rabbitPass = Environment.GetEnvironmentVariable("RABBITMQ__PASSWORD") ?? Require("RabbitMQ:Password");
 
 // JWT key must be provided via configuration; never default to a hardcoded key
 var jwtKey = Require("Jwt:Key");
@@ -81,17 +77,17 @@ builder.Services.AddScoped<IOrderGameRepository, OrderGameRepository>();
 // Application services
 builder.Services.AddScoped<GameService>();
 
-// MassTransit with RabbitMQ
+var rabbitMQSettings = builder.Configuration.GetSection("RabbitMQ").Get<RabbitMQSettings>()!;
 builder.Services.AddMassTransit(x =>
 {
     x.AddConsumer<PaymentProcessedConsumer>();
 
     x.UsingRabbitMq((context, cfg) =>
     {
-        cfg.Host(rabbitHost, rabbitVHost, h =>
+        cfg.Host(rabbitMQSettings.HostName, h =>
         {
-            h.Username(rabbitUser);
-            h.Password(rabbitPass);
+            h.Username(rabbitMQSettings.UserName);
+            h.Password(rabbitMQSettings.Password);
         });
 
         cfg.ConfigureEndpoints(context);
