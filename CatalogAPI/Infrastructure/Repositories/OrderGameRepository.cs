@@ -8,11 +8,9 @@ public class OrderGameRepository(CatalogDbContext db) : IOrderGameRepository
 {
     public async Task MarkOrderAsProcessedAsync(Guid orderId)
     {
-        db.OrderGames.Update(new OrderGame
-        {
-            Id = orderId,
-            IsProcessed = true
-        });
+        db.OrderGames
+          .Where(x => x.Id == orderId)
+          .ExecuteUpdate(setters => setters.SetProperty(x => x.IsProcessed, true));
 
         await db.SaveChangesAsync();
     }
