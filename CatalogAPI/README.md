@@ -2,29 +2,49 @@
 
 ## ?? Quick Start
 
-### Teste Local com Docker Compose
-```bash
-# Este serviço será chamado por outro docker-compose
-# Apenas construa a imagem:
-docker build -t catalogapi:fixed .
-```
+### Deploy no Kubernetes (COMPLETO)
 
-### Deploy no Kubernetes
 ```powershell
-# 1. Build da imagem
-docker build -t catalogapi:fixed .
+# 1. Navegar para a pasta do projeto
+cd CatalogAPI/CatalogAPI
 
-# 2. Deploy (na ordem correta)
-kubectl apply -f k8s/configmap.yaml
-kubectl apply -f k8s/secret.yaml
-kubectl apply -f k8s/deployment.yaml
+# 2. Build da imagem Docker
+docker build -t catalogapi:latest .
 
-# 3. Verificar status
-kubectl get pods -l app=catalogapi
+# 3. Deploy no Kubernetes (ordem correta)
+cd k8s
+
+# SQL Server
+kubectl apply -f sql-catalog-secret.yml
+kubectl apply -f sql-catalog-deployment.yml
+kubectl apply -f sql-catalog-service.yml
+
+# CatalogAPI
+kubectl apply -f configmap.yaml
+kubectl apply -f secret.yaml
+kubectl apply -f deployment.yaml
+
+# 4. Verificar status
+kubectl get pods
 kubectl logs -f deployment/catalogapi
 
-# 4. Testar (port-forward)
+# 5. Testar API
 kubectl port-forward service/catalogapi 8080:80
+```
+
+### ?? Deploy Automático
+
+Use os scripts PowerShell criados:
+
+```powershell
+# Opção 1: Deploy completo (inclui SQL Server)
+.\apply-all.ps1
+
+# Opção 2: Rebuild + Redeploy (após mudanças no código)
+.\rebuild-and-deploy.ps1
+
+# Opção 3: Preparar conexão DBeaver
+.\prepare-dbeaver.ps1
 ```
 
 ---
@@ -34,7 +54,6 @@ kubectl port-forward service/catalogapi 8080:80
 - **API**: http://localhost:8080/swagger
 - **Health**: http://localhost:8080/health
 - **Readiness**: http://localhost:8080/health/ready
-- **Liveness**: http://localhost:8080/health/live
 - **Games API**: http://localhost:8080/api/games
 
 ---
@@ -57,15 +76,18 @@ RABBITMQ__Password=fiap123
 
 # JWT
 JWT__Key=very_secret_demo_key_please_change
+
+# SQL Server
+ConnectionStrings__CatalogDb=Server=sql-catalog,1433;Database=CatalogDb;User Id=sa;Password=StrongPassword!123;TrustServerCertificate=True;
 ```
 
 ### Mapeamento no Código
 ```csharp
 // Program.cs lê assim:
-builder.Configuration["RABBITMQ:Host"]        // ? RABBITMQ__Host
-builder.Configuration["RABBITMQ:VirtualHost"] // ? RABBITMQ__VirtualHost
-builder.Configuration["RABBITMQ:Username"]    // ? RABBITMQ__Username
-builder.Configuration["JWT:Key"]              // ? JWT__Key
+builder.Configuration["RABBITMQ:Host"]              // ? RABBITMQ__Host
+builder.Configuration["RABBITMQ:VirtualHost"]       // ? RABBITMQ__VirtualHost
+builder.Configuration["ConnectionStrings:CatalogDb"] // ? ConnectionStrings__CatalogDb
+builder.Configuration["JWT:Key"]                    // ? JWT__Key
 ```
 
 ---
@@ -74,31 +96,98 @@ builder.Configuration["JWT:Key"]              // ? JWT__Key
 
 ### Recursos Aplicados
 ```
-ConfigMap:  catalogapi-config  (variáveis não-sensíveis)
-Secret:     catalogapi-secret  (credenciais)
-Deployment: catalogapi         (1 réplica)
-Service:    catalogapi         (ClusterIP, porta 80 ? 8080)
+# SQL Server
+Secret:     sql-catalog-secret     (senha SA)
+Deployment: sql-catalog            (SQL Server 2019)
+Service:    sql-catalog            (ClusterIP, porta 1433)
+
+# CatalogAPI
+ConfigMap:  catalogapi-config      (variáveis não-sensíveis)
+Secret:     catalogapi-secret      (credenciais + connection string)
+Deployment: catalogapi             (1 réplica)
+Service:    catalogapi             (ClusterIP, porta 80 ? 8080)
 ```
 
 ### Portas Configuradas
-- **Container**: 8080 (porta não-privilegiada para usuário `app`)
-- **Service**: 80 (ClusterIP interno)
-- **Port-forward**: `kubectl port-forward service/catalogapi 8080:80`
+- **CatalogAPI Container**: 8080 (porta não-privilegiada)
+- **CatalogAPI Service**: 80 (ClusterIP interno)
+- **SQL Server Container**: 1433 (porta padrão)
+- **Port-forward API**: `kubectl port-forward service/catalogapi 8080:80`
+- **Port-forward SQL**: `kubectl port-forward service/sql-catalog 14332:1433`
 
 > ?? **Importante**: O container roda como usuário não-root (`USER app`), portanto só pode usar portas ? 1024
 
-### Health Checks
-- **Liveness**: `/health/live` - Verifica se o app está vivo (desabilitado por padrão)
-- **Readiness**: `/health/ready` - Verifica conectividade com RabbitMQ (desabilitado por padrão)
+---
 
-> ?? Os health checks foram removidos para simplificar o deployment inicial. Podem ser reativados editando o `deployment.yaml`
+## ??? Banco de Dados (SQL Server)
+
+### Configuração
+- **Servidor**: SQL Server 2019 (container)
+- **ORM**: Entity Framework Core 8.0
+- **Migrations**: Aplicadas automaticamente no startup
+- **Dados**: Persistidos em `emptyDir` (perdidos ao deletar pod)
+
+### Tabelas Criadas
+1. **Games** - Catálogo de jogos
+   - Id (uniqueidentifier)
+   - Title (nvarchar 200)
+   - Description (nvarchar 2000)
+   - Price (decimal 18,2)
+
+2. **UserLibraries** - Biblioteca de jogos dos usuários
+   - Id (uniqueidentifier)
+   - UserId (uniqueidentifier)
+   - GameId (uniqueidentifier)
+   - CreatedAt (datetime2)
+
+3. **OrderGames** - Pedidos de jogos
+   - Id (uniqueidentifier)
+   - UserId (uniqueidentifier)
+   - GameId (uniqueidentifier)
+   - IsProcessed (bit)
+
+4. **__EFMigrationsHistory** - Controle de migrations
+
+### Conexão DBeaver
+
+#### Port-forward:
+```powershell
+kubectl port-forward service/sql-catalog 14332:1433
+```
+
+#### Configuração:
+| Campo | Valor |
+|-------|-------|
+| **Database** | Microsoft SQL Server |
+| **Host** | `localhost` |
+| **Port** | `14332` |
+| **Database** | `CatalogDb` |
+| **Username** | `sa` |
+| **Password** | `StrongPassword!123` |
+| **Driver Property** | `trustServerCertificate=true` |
+| **Driver Property** | `encrypt=false` |
+
+#### Queries de Teste:
+```sql
+-- Ver migrations aplicadas
+SELECT * FROM __EFMigrationsHistory;
+
+-- Ver todas as tabelas
+SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE';
+
+-- Ver jogos (2 de seed)
+SELECT * FROM Games;
+
+-- Ver biblioteca de usuários
+SELECT * FROM UserLibraries;
+```
 
 ---
 
 ## ?? RabbitMQ Integration
 
 ### Consumidor Configurado
-- **Queue**: `payment_processed_queue`
+- **Queue**: `catalog-payment-processed`
 - **Consumer**: `PaymentProcessedConsumer`
 - **Event**: `PaymentProcessedEvent`
 
@@ -113,7 +202,7 @@ kubectl port-forward service/rabbitmq 15672:15672
 
 #### 2. Publicar Mensagem de Teste
 Na UI do RabbitMQ:
-1. Vá em **Queues** ? `payment_processed_queue`
+1. Vá em **Queues** ? `catalog-payment-processed`
 2. Clique em **Publish message**
 3. Configure:
    - **Content type**: `application/vnd.masstransit+json`
@@ -125,13 +214,14 @@ Na UI do RabbitMQ:
   "messageId": "00000000-0000-0000-0000-000000000001",
   "conversationId": "00000000-0000-0000-0000-000000000002",
   "sourceAddress": "rabbitmq://rabbitmq/payment_api",
-  "destinationAddress": "rabbitmq://rabbitmq/payment_processed_queue",
+  "destinationAddress": "rabbitmq://rabbitmq/catalog-payment-processed",
   "messageType": [
-    "urn:message:CatalogAPI.Domain.Events:PaymentProcessedEvent"
+    "urn:message:Shared.Events:PaymentProcessedEvent"
   ],
   "message": {
-    "userId": "550e8400-e29b-41d4-a716-446655440001",
-    "gameId": "550e8400-e29b-41d4-a716-446655440002",
+    "orderId": "550e8400-e29b-41d4-a716-446655440001",
+    "userId": "550e8400-e29b-41d4-a716-446655440002",
+    "gameId": "550e8400-e29b-41d4-a716-446655440003",
     "price": 299.90,
     "status": "Approved"
   },
@@ -162,11 +252,11 @@ curl http://localhost:8080/health/ready
 ```
 
 ### Testes Completos
-Veja o arquivo [k8s/TEST_PAYLOADS.md](k8s/TEST_PAYLOADS.md) para:
-- ? Payloads de exemplo
-- ?? Como gerar token JWT
-- ?? Como testar RabbitMQ
-- ?? Scripts de teste (PowerShell e Bash)
+Para mais informações sobre testes:
+- ? Payloads de exemplo para API REST
+- ?? Autenticação JWT (simplificada para demo)
+- ?? Integração com RabbitMQ
+- ?? Health checks disponíveis
 
 ---
 
@@ -183,18 +273,31 @@ CatalogAPI/
 ??? Domain/              # Entities & Events
 ?   ??? Entities/
 ?   ?   ??? Game.cs
+?   ?   ??? UserLibraryEntry.cs
+?   ?   ??? OrderGame.cs
 ?   ??? Events/
-?       ??? PaymentProcessedEvent.cs
 ?       ??? OrderPlacedEvent.cs
-??? Infrastructure/      # Repositories, Consumers
+??? Infrastructure/      # Repositories, Consumers, Persistence
+?   ??? Persistence/
+?   ?   ??? CatalogDbContext.cs
 ?   ??? Repositories/
+?   ?   ??? GameRepository.cs
+?   ?   ??? UserLibraryRepository.cs
+?   ?   ??? OrderGameRepository.cs
 ?   ??? Consumers/
 ?       ??? PaymentProcessedConsumer.cs
+??? Migrations/          # EF Core Migrations
+?   ??? 20260118234430_Initial.cs
 ??? k8s/                # Kubernetes manifests
 ?   ??? deployment.yaml
 ?   ??? configmap.yaml
 ?   ??? secret.yaml
-?   ??? TEST_PAYLOADS.md
+?   ??? sql-catalog-secret.yml
+?   ??? sql-catalog-deployment.yml
+?   ??? sql-catalog-service.yml
+?   ??? apply-all.ps1          # Script de deploy completo
+?   ??? rebuild-and-deploy.ps1 # Script de rebuild
+?   ??? prepare-dbeaver.ps1    # Script de preparação DBeaver
 ??? Dockerfile          # Multi-stage build otimizado
 ??? Program.cs          # Configuração da aplicação
 ??? README.md
@@ -213,14 +316,44 @@ kubectl logs -f deployment/catalogapi
 kubectl describe pod -l app=catalogapi
 
 # Problemas comuns:
-# 1. Imagem não encontrada ? Verifique: imagePullPolicy: IfNotPresent
+# 1. Imagem não encontrada ? imagePullPolicy: IfNotPresent
 # 2. RabbitMQ não conecta ? Verifique: kubectl get pods | grep rabbitmq
-# 3. Porta 80 permission denied ? RESOLVIDO: usando porta 8080
+# 3. SQL Server não conecta ? Verifique: kubectl get pods | grep sql-catalog
+```
+
+### Erro: ErrImageNeverPull
+? **RESOLVIDO**: O deployment agora usa `imagePullPolicy: IfNotPresent`
+
+**Como corrigir:**
+```powershell
+# Rebuild da imagem
+docker build -t catalogapi:latest .
+
+# Aplicar deployment atualizado
+kubectl apply -f k8s/deployment.yaml
+kubectl delete pod -l app=catalogapi
+```
+
+### Erro: Cannot open database "CatalogDb"
+? **RESOLVIDO**: Use o script `prepare-dbeaver.ps1`
+
+**Causa**: Banco não foi criado ou migrations não rodaram
+
+**Solução:**
+```powershell
+# Opção 1: Script automático
+cd k8s
+.\prepare-dbeaver.ps1
+
+# Opção 2: Manual
+kubectl exec sql-catalog-pod-name -- /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "StrongPassword!123" -C -Q "CREATE DATABASE CatalogDb;"
+kubectl delete pod -l app=catalogapi
 ```
 
 ### Erro: Permission denied (porta 80)
-? **RESOLVIDO**: O deployment agora usa:
-- `ASPNETCORE_URLS=http://+:8080` (porta não-privilegiada)
+? **RESOLVIDO**: O container usa porta 8080
+
+- `ASPNETCORE_URLS=http://+:8080`
 - Container expõe porta 8080
 - Service mapeia 80 ? 8080
 
@@ -231,19 +364,32 @@ MT-Fault-Message: Value cannot be null. (Parameter 'envelope')
 
 ? **RESOLVIDO**: Use o formato correto do MassTransit (veja seção RabbitMQ Integration)
 
+### Migrations não rodaram
+```powershell
+# Verificar logs
+kubectl logs deployment/catalogapi | Select-String "migration|CREATE TABLE"
+
+# Forçar execução das migrations
+kubectl delete pod -l app=catalogapi
+
+# Verificar tabelas criadas
+kubectl exec sql-catalog-pod-name -- /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "StrongPassword!123" -C -Q "USE CatalogDb; SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES;"
+```
+
 ### Verificar Status Geral
 ```bash
-# Status dos pods
-kubectl get pods -l app=catalogapi
+# Status de todos os pods
+kubectl get pods
 
-# Logs em tempo real
+# Logs CatalogAPI
 kubectl logs -f deployment/catalogapi
 
-# Remover tudo e recomeçar
+# Logs SQL Server
+kubectl logs -f deployment/sql-catalog
+
+# Remover tudo e redeployar
 kubectl delete -f k8s/
-kubectl apply -f k8s/configmap.yaml
-kubectl apply -f k8s/secret.yaml
-kubectl apply -f k8s/deployment.yaml
+.\apply-all.ps1
 ```
 
 ---
@@ -254,20 +400,28 @@ kubectl apply -f k8s/deployment.yaml
 - ? Secrets separados do código
 - ? Resource limits configurados (128Mi-512Mi RAM, 100m-500m CPU)
 - ?? JWT key é demo - **MUDE EM PRODUÇÃO**
+- ?? Senha SQL Server é demo - **MUDE EM PRODUÇÃO**
+- ?? `trustServerCertificate=true` - **Use certificados válidos em produção**
 
 ---
 
 ## ?? Notas Técnicas
 
 ### Armazenamento de Dados
-- ?? **In-Memory**: Dados armazenados em memória (InMemoryRepository)
-- ?? **Volátil**: Dados são perdidos ao reiniciar o pod
-- ?? **Demo**: Adequado para testes e desenvolvimento
+- ?? **SQL Server**: Dados armazenados em SQL Server 2019
+- ?? **emptyDir**: Volume temporário (dados perdidos ao deletar pod)
+- ?? **Demo**: Para produção, use PersistentVolumeClaim (PVC)
+
+### Entity Framework Core
+- ?? **ORM**: Entity Framework Core 8.0
+- ?? **Migrations**: Aplicadas automaticamente no startup
+- ??? **Contexto**: `CatalogDbContext`
+- ??? **Code First**: Modelagem de dados no código C#
 
 ### MassTransit + RabbitMQ
-- ?? Usa MassTransit para abstração do RabbitMQ
+- ?? Usa MassTransit 8.0 para abstração do RabbitMQ
 - ?? Consumer: `PaymentProcessedConsumer`
-- ?? Queue: `payment_processed_queue`
+- ?? Queue: `catalog-payment-processed`
 - ?? Publica: `OrderPlacedEvent`
 
 ### Autenticação
@@ -277,6 +431,43 @@ kubectl apply -f k8s/deployment.yaml
 
 ---
 
-**Versão**: .NET 8.0  
-**Status**: ? Production Ready  
-**Última Atualização**: 2026-01-20
+## ?? Melhorias para Produção
+
+### Banco de Dados
+```yaml
+# Use PersistentVolumeClaim
+volumes:
+  - name: sql-data
+    persistentVolumeClaim:
+      claimName: sql-catalog-pvc
+```
+
+### Health Checks
+Habilite health checks no `deployment.yaml`:
+```yaml
+livenessProbe:
+  httpGet:
+    path: /health/live
+    port: 8080
+  initialDelaySeconds: 30
+  periodSeconds: 10
+
+readinessProbe:
+  httpGet:
+    path: /health/ready
+    port: 8080
+  initialDelaySeconds: 10
+  periodSeconds: 5
+```
+
+### Secrets Management
+- Use Azure Key Vault ou HashiCorp Vault
+- Rotação automática de senhas
+- Certificados válidos para SQL Server
+
+### Observabilidade
+- Adicione Application Insights
+- Configure logs estruturados
+- Implemente tracing distribuído
+
+---

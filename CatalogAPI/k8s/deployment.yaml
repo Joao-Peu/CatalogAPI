@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: catalogapi
-          image: catalogapi:fixed
+          image: catalogapi:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
@@ -35,7 +35,7 @@ spec:
             - name: ASPNETCORE_ENVIRONMENT
               value: "Production"
 
-            # Variáveis do ConfigMap
+            # Variáveis do ConfigMap - RabbitMQ
             - name: RABBITMQ__Host
               valueFrom:
                 configMapKeyRef:
@@ -63,6 +63,11 @@ spec:
                 secretKeyRef:
                   name: catalogapi-secret
                   key: JWT_KEY
+            - name: ConnectionStrings__CatalogDb
+              valueFrom:
+                secretKeyRef:
+                  name: catalogapi-secret
+                  key: ConnectionStrings__CatalogDb
 ---
 apiVersion: v1
 kind: Service

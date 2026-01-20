@@ -8,7 +8,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
-using UsersAPI.Infrastructure.RabbitMQ;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,11 +16,9 @@ var rabbitHost = builder.Configuration["RABBITMQ:Host"] ?? "rabbitmq";
 var rabbitVHost = builder.Configuration["RABBITMQ:VirtualHost"] ?? "/";
 var rabbitUser = builder.Configuration["RABBITMQ:Username"] ?? "fiap";
 var rabbitPass = builder.Configuration["RABBITMQ:Password"] ?? "fiap123";
+
+// JWT key from configuration
 var jwtKey = builder.Configuration["JWT:Key"] ?? "very_secret_demo_key_please_change";
-
-
-// JWT key must be provided via configuration; never default to a hardcoded key
-var jwtKey = Require("Jwt:Key");
 
 // Connection string must be provided via configuration; avoid hardcoded defaults
 var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__CatalogDb") 
@@ -75,24 +72,25 @@ builder.Services.AddHealthChecks()
         timeout: TimeSpan.FromSeconds(3),
         tags: new[] { "ready" });
 
-// In-memory repositories
-builder.Services.AddSingleton<IGameRepository, InMemoryGameRepository>();
-builder.Services.AddSingleton<IUserLibraryRepository, InMemoryUserLibraryRepository>();
+// Database repositories (EF Core)
+builder.Services.AddScoped<IGameRepository, GameRepository>();
+builder.Services.AddScoped<IUserLibraryRepository, UserLibraryRepository>();
+builder.Services.AddScoped<IOrderGameRepository, OrderGameRepository>();
 
 // Application services
 builder.Services.AddScoped<GameService>();
 
-var rabbitMQSettings = builder.Configuration.GetSection("RabbitMQ").Get<RabbitMQSettings>()!;
+// MassTransit with RabbitMQ
 builder.Services.AddMassTransit(x =>
 {
     x.AddConsumer<PaymentProcessedConsumer>();
 
     x.UsingRabbitMq((context, cfg) =>
     {
-        cfg.Host(rabbitMQSettings.HostName, h =>
+        cfg.Host(rabbitHost, rabbitVHost, h =>
         {
-            h.Username(rabbitMQSettings.UserName);
-            h.Password(rabbitMQSettings.Password);
+            h.Username(rabbitUser);
+            h.Password(rabbitPass);
         });
 
         cfg.ReceiveEndpoint("catalog-payment-processed", e =>
@@ -102,7 +100,7 @@ builder.Services.AddMassTransit(x =>
     });
 });
 
-// Simple JWT auth placeholder (note: for demo only)
+// JWT Authentication
 var key = Encoding.ASCII.GetBytes(jwtKey);
 builder.Services.AddAuthentication(options =>
 {
@@ -111,7 +109,7 @@ builder.Services.AddAuthentication(options =>
 })
 .AddJwtBearer(options =>
 {
-    options.RequireHttpsMetadata = true;
+    options.RequireHttpsMetadata = false;
     options.SaveToken = true;
     options.TokenValidationParameters = new TokenValidationParameters
     {
@@ -126,20 +124,29 @@ builder.Services.AddAuthentication(options =>
 
 var app = builder.Build();
 
-// Ensure database created and seed demo data (dev only)
-if (app.Environment.IsDevelopment())
+// Ensure database created and seed demo data
+using (var scope = app.Services.CreateScope())
 {
-    using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<CatalogDbContext>();
-    db.Database.Migrate();
-
-    if (!db.Games.Any())
+    
+    try
     {
-        db.Games.AddRange(
-            new CatalogAPI.Domain.Entities.Game { Id = Guid.NewGuid(), Title = "Cyber Adventure", Description = "Futuristic RPG", Price = 49.99M },
-            new CatalogAPI.Domain.Entities.Game { Id = Guid.NewGuid(), Title = "Space Battles", Description = "Multiplayer space shooter", Price = 29.99M }
-        );
-        db.SaveChanges();
+        db.Database.Migrate();
+        
+        if (!db.Games.Any())
+        {
+            db.Games.AddRange(
+                new CatalogAPI.Domain.Entities.Game { Id = Guid.NewGuid(), Title = "Cyber Adventure", Description = "Futuristic RPG", Price = 49.99M },
+                new CatalogAPI.Domain.Entities.Game { Id = Guid.NewGuid(), Title = "Space Battles", Description = "Multiplayer space shooter", Price = 29.99M }
+            );
+            db.SaveChanges();
+        }
+    }
+    catch (Exception ex)
+    {
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "An error occurred while migrating or seeding the database.");
+        throw;
     }
 }
 
