@@ -8,19 +8,15 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
+using UsersAPI.Infrastructure.RabbitMQ;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Configuration (environment variables / appsettings)
-var rabbitHost = builder.Configuration["RABBITMQ:Host"] ?? "rabbitmq";
-var rabbitVHost = builder.Configuration["RABBITMQ:VirtualHost"] ?? "/";
-var rabbitUser = builder.Configuration["RABBITMQ:Username"] ?? "fiap";
-var rabbitPass = builder.Configuration["RABBITMQ:Password"] ?? "fiap123";
+
 
 // JWT key from configuration
 var jwtKey = builder.Configuration["JWT:Key"] ?? "very_secret_demo_key_please_change";
 
-// Connection string must be provided via configuration; avoid hardcoded defaults
 var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__CatalogDb") 
     ?? builder.Configuration.GetConnectionString("CatalogDb")
     ?? builder.Configuration["ConnectionStrings:CatalogDb"]
@@ -64,10 +60,12 @@ builder.Services.AddSwaggerGen(c =>
 builder.Services.AddDbContext<CatalogDbContext>(options =>
     options.UseSqlServer(connectionString));
 
+
+var rabbitMQSettings = builder.Configuration.GetSection("RabbitMQ").Get<RabbitMQSettings>()!;
 // Health Checks
 builder.Services.AddHealthChecks()
     .AddRabbitMQ(
-        rabbitConnectionString: $"amqp://{rabbitUser}:{rabbitPass}@{rabbitHost}{rabbitVHost}",
+        rabbitConnectionString: $"amqp://{rabbitMQSettings.UserName}:{rabbitMQSettings.Password}@{rabbitMQSettings.HostName}/",
         name: "rabbitmq",
         timeout: TimeSpan.FromSeconds(3),
         tags: new[] { "ready" });
@@ -87,10 +85,10 @@ builder.Services.AddMassTransit(x =>
 
     x.UsingRabbitMq((context, cfg) =>
     {
-        cfg.Host(rabbitHost, rabbitVHost, h =>
+        cfg.Host(rabbitMQSettings.HostName, h =>
         {
-            h.Username(rabbitUser);
-            h.Password(rabbitPass);
+            h.Username(rabbitMQSettings.UserName);
+            h.Password(rabbitMQSettings.Password);
         });
 
         cfg.ReceiveEndpoint("catalog-payment-processed", e =>
