@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   name: catalogapi
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: catalogapi
@@ -14,23 +14,60 @@ spec:
     spec:
       containers:
         - name: catalogapi
-          image: yourrepo/catalogapi:latest
+          image: catalogapi:latest
+          imagePullPolicy: IfNotPresent
           ports:
-            - containerPort: 80
+            - containerPort: 8080
+
+          # Resource Limits
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+
           env:
-            - name: RABBITMQ__HOST
-              value: "rabbitmq"
-            - name: RABBITMQ__VIRTUALHOST
-              value: "/"
-            - name: RABBITMQ__USERNAME
-              value: "guest"
-            - name: RABBITMQ__PASSWORD
-              value: "guest"
-            - name: JWT__KEY
+            # Configuração de porta (CRÍTICO - não pode ser sobrescrito)
+            - name: ASPNETCORE_URLS
+              value: "http://+:8080"
+            - name: ASPNETCORE_ENVIRONMENT
+              value: "Production"
+
+            # Variáveis do ConfigMap - RabbitMQ
+            - name: RABBITMQ__Host
+              valueFrom:
+                configMapKeyRef:
+                  name: catalogapi-config
+                  key: RABBITMQ_HOST
+            - name: RABBITMQ__VirtualHost
+              valueFrom:
+                configMapKeyRef:
+                  name: catalogapi-config
+                  key: RABBITMQ_VHOST
+
+            # Variáveis do Secret
+            - name: RABBITMQ__Username
               valueFrom:
                 secretKeyRef:
-                  name: jwt-secret
-                  key: key
+                  name: catalogapi-secret
+                  key: RABBITMQ_USERNAME
+            - name: RABBITMQ__Password
+              valueFrom:
+                secretKeyRef:
+                  name: catalogapi-secret
+                  key: RABBITMQ_PASSWORD
+            - name: JWT__Key
+              valueFrom:
+                secretKeyRef:
+                  name: catalogapi-secret
+                  key: JWT_KEY
+            - name: ConnectionStrings__CatalogDb
+              valueFrom:
+                secretKeyRef:
+                  name: catalogapi-secret
+                  key: ConnectionStrings__CatalogDb
 ---
 apiVersion: v1
 kind: Service
@@ -42,5 +79,5 @@ spec:
   ports:
     - protocol: TCP
       port: 80
-      targetPort: 80
+      targetPort: 8080
   type: ClusterIP

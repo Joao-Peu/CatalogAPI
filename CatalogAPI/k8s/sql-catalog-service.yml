@@ -1,0 +1,11 @@
+﻿apiVersion: v1
+kind: Service
+metadata:
+  name: sql-catalog
+spec:
+  selector:
+    app: sql-catalog
+  ports:
+    - port: 1433
+      targetPort: 1433
+  type: ClusterIP

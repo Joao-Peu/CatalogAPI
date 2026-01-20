@@ -1,4 +1,4 @@
-using CatalogAPI.Application.Services;
+﻿using CatalogAPI.Application.Services;
 using CatalogAPI.Infrastructure.Consumers;
 using CatalogAPI.Infrastructure.Persistence;
 using CatalogAPI.Infrastructure.Repositories;
@@ -12,20 +12,11 @@ using UsersAPI.Infrastructure.RabbitMQ;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Helper to require configuration values (security best practices)
-string Require(string key)
-{
-    var value = builder.Configuration[key];
-    if (string.IsNullOrWhiteSpace(value))
-        throw new InvalidOperationException($"Missing required configuration key: {key}. Set it via appsettings or environment variables.");
-    return value;
-}
 
 
-// JWT key must be provided via configuration; never default to a hardcoded key
-var jwtKey = Require("Jwt:Key");
+// JWT key from configuration
+var jwtKey = builder.Configuration["JWT:Key"] ?? "very_secret_demo_key_please_change";
 
-// Connection string must be provided via configuration; avoid hardcoded defaults
 var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__CatalogDb") 
     ?? builder.Configuration.GetConnectionString("CatalogDb")
     ?? builder.Configuration["ConnectionStrings:CatalogDb"]
@@ -69,7 +60,17 @@ builder.Services.AddSwaggerGen(c =>
 builder.Services.AddDbContext<CatalogDbContext>(options =>
     options.UseSqlServer(connectionString));
 
-// Repositories (EF Core)
+
+var rabbitMQSettings = builder.Configuration.GetSection("RabbitMQ").Get<RabbitMQSettings>()!;
+// Health Checks
+builder.Services.AddHealthChecks()
+    .AddRabbitMQ(
+        rabbitConnectionString: $"amqp://{rabbitMQSettings.UserName}:{rabbitMQSettings.Password}@{rabbitMQSettings.HostName}/",
+        name: "rabbitmq",
+        timeout: TimeSpan.FromSeconds(3),
+        tags: new[] { "ready" });
+
+// Database repositories (EF Core)
 builder.Services.AddScoped<IGameRepository, GameRepository>();
 builder.Services.AddScoped<IUserLibraryRepository, UserLibraryRepository>();
 builder.Services.AddScoped<IOrderGameRepository, OrderGameRepository>();
@@ -77,7 +78,7 @@ builder.Services.AddScoped<IOrderGameRepository, OrderGameRepository>();
 // Application services
 builder.Services.AddScoped<GameService>();
 
-var rabbitMQSettings = builder.Configuration.GetSection("RabbitMQ").Get<RabbitMQSettings>()!;
+// MassTransit with RabbitMQ
 builder.Services.AddMassTransit(x =>
 {
     x.AddConsumer<PaymentProcessedConsumer>();
@@ -97,7 +98,7 @@ builder.Services.AddMassTransit(x =>
     });
 });
 
-// Simple JWT auth placeholder (note: for demo only)
+// JWT Authentication
 var key = Encoding.ASCII.GetBytes(jwtKey);
 builder.Services.AddAuthentication(options =>
 {
@@ -106,7 +107,7 @@ builder.Services.AddAuthentication(options =>
 })
 .AddJwtBearer(options =>
 {
-    options.RequireHttpsMetadata = true;
+    options.RequireHttpsMetadata = false;
     options.SaveToken = true;
     options.TokenValidationParameters = new TokenValidationParameters
     {
@@ -121,20 +122,29 @@ builder.Services.AddAuthentication(options =>
 
 var app = builder.Build();
 
-// Ensure database created and seed demo data (dev only)
-if (app.Environment.IsDevelopment())
+// Ensure database created and seed demo data
+using (var scope = app.Services.CreateScope())
 {
-    using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<CatalogDbContext>();
-    db.Database.Migrate();
-
-    if (!db.Games.Any())
+    
+    try
     {
-        db.Games.AddRange(
-            new CatalogAPI.Domain.Entities.Game { Id = Guid.NewGuid(), Title = "Cyber Adventure", Description = "Futuristic RPG", Price = 49.99M },
-            new CatalogAPI.Domain.Entities.Game { Id = Guid.NewGuid(), Title = "Space Battles", Description = "Multiplayer space shooter", Price = 29.99M }
-        );
-        db.SaveChanges();
+        db.Database.Migrate();
+        
+        if (!db.Games.Any())
+        {
+            db.Games.AddRange(
+                new CatalogAPI.Domain.Entities.Game { Id = Guid.NewGuid(), Title = "Cyber Adventure", Description = "Futuristic RPG", Price = 49.99M },
+                new CatalogAPI.Domain.Entities.Game { Id = Guid.NewGuid(), Title = "Space Battles", Description = "Multiplayer space shooter", Price = 29.99M }
+            );
+            db.SaveChanges();
+        }
+    }
+    catch (Exception ex)
+    {
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "An error occurred while migrating or seeding the database.");
+        throw;
     }
 }
 
@@ -144,7 +154,22 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+// Health Check Endpoints
+app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    Predicate = _ => true
+});
+
+app.MapHealthChecks("/health/ready", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("ready")
+});
+
+app.MapHealthChecks("/health/live", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    Predicate = _ => false // Apenas verifica se o app está rodando
+});
+
 app.UseAuthentication();
 app.UseAuthorization();
 
