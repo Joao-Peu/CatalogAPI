@@ -1,4 +1,4 @@
-using CatalogAPI.Application.Services;
+﻿using CatalogAPI.Application.Services;
 using CatalogAPI.Infrastructure.Consumers;
 using CatalogAPI.Infrastructure.Persistence;
 using CatalogAPI.Infrastructure.Repositories;
@@ -167,7 +167,7 @@ app.MapHealthChecks("/health/ready", new Microsoft.AspNetCore.Diagnostics.Health
 
 app.MapHealthChecks("/health/live", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
 {
-    Predicate = _ => false // Apenas verifica se o app est� rodando
+    Predicate = _ => false // Apenas verifica se o app está rodando
 });
 
 app.UseAuthentication();
