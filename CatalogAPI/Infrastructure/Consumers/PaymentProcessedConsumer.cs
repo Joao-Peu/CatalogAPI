@@ -1,21 +1,14 @@
 using CatalogAPI.Application.Services;
-using CatalogAPI.Domain.Events;
 using MassTransit;
+using Shared.Events;
 
 namespace CatalogAPI.Infrastructure.Consumers;
 
-public class PaymentProcessedConsumer : IConsumer<PaymentProcessedEvent>
+public class PaymentProcessedConsumer(GameService gameService) : IConsumer<PaymentProcessedEvent>
 {
-    private readonly GameService _gameService;
-
-    public PaymentProcessedConsumer(GameService gameService)
-    {
-        _gameService = gameService;
-    }
-
     public async Task Consume(ConsumeContext<PaymentProcessedEvent> context)
     {
         var evt = context.Message;
-        await _gameService.HandlePaymentProcessedAsync(evt);
+        await gameService.HandlePaymentProcessedAsync(evt);
     }
 }
