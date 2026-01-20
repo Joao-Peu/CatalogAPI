@@ -9,16 +9,24 @@ using System.Text;
 var builder = WebApplication.CreateBuilder(args);
 
 // Configuration (environment variables / appsettings)
-var rabbitHost = builder.Configuration["RABBITMQ:Host"] ?? "localhost";
+var rabbitHost = builder.Configuration["RABBITMQ:Host"] ?? "rabbitmq";
 var rabbitVHost = builder.Configuration["RABBITMQ:VirtualHost"] ?? "/";
-var rabbitUser = builder.Configuration["RABBITMQ:Username"] ?? "guest";
-var rabbitPass = builder.Configuration["RABBITMQ:Password"] ?? "guest";
+var rabbitUser = builder.Configuration["RABBITMQ:Username"] ?? "fiap";
+var rabbitPass = builder.Configuration["RABBITMQ:Password"] ?? "fiap123";
 var jwtKey = builder.Configuration["JWT:Key"] ?? "very_secret_demo_key_please_change";
 
 // Add services to the container.
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+// Health Checks
+builder.Services.AddHealthChecks()
+    .AddRabbitMQ(
+        rabbitConnectionString: $"amqp://{rabbitUser}:{rabbitPass}@{rabbitHost}{rabbitVHost}",
+        name: "rabbitmq",
+        timeout: TimeSpan.FromSeconds(3),
+        tags: new[] { "ready" });
 
 // In-memory repositories
 builder.Services.AddSingleton<IGameRepository, InMemoryGameRepository>();
@@ -74,6 +82,22 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+
+// Health Check Endpoints
+app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    Predicate = _ => true
+});
+
+app.MapHealthChecks("/health/ready", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("ready")
+});
+
+app.MapHealthChecks("/health/live", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    Predicate = _ => false // Apenas verifica se o app está rodando
+});
 
 app.UseAuthentication();
 app.UseAuthorization();
