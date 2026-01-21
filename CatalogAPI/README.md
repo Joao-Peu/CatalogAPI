@@ -115,17 +115,17 @@ Service:    catalogapi             (ClusterIP, porta 80 ? 8080)
 - **Port-forward API**: `kubectl port-forward service/catalogapi 8080:80`
 - **Port-forward SQL**: `kubectl port-forward service/sql-catalog 14332:1433`
 
-> ?? **Importante**: O container roda como usuário não-root (`USER app`), portanto só pode usar portas ? 1024
+> ?? Importante: O container roda como usuário não-root (`USER app`), portanto só pode usar portas ? 1024
 
 ---
 
 ## ??? Banco de Dados (SQL Server)
 
 ### Configuração
-- **Servidor**: SQL Server 2019 (container)
-- **ORM**: Entity Framework Core 8.0
-- **Migrations**: Aplicadas automaticamente no startup
-- **Dados**: Persistidos em `emptyDir` (perdidos ao deletar pod)
+- Servidor: SQL Server 2019 (container)
+- ORM: Entity Framework Core 8.0
+- Migrations: Aplicadas automaticamente no startup
+- Dados: Persistidos em `emptyDir` (perdidos ao deletar pod)
 
 ### Tabelas Criadas
 1. **Games** - Catálogo de jogos
@@ -158,14 +158,14 @@ kubectl port-forward service/sql-catalog 14332:1433
 #### Configuração:
 | Campo | Valor |
 |-------|-------|
-| **Database** | Microsoft SQL Server |
-| **Host** | `localhost` |
-| **Port** | `14332` |
-| **Database** | `CatalogDb` |
-| **Username** | `sa` |
-| **Password** | `StrongPassword!123` |
-| **Driver Property** | `trustServerCertificate=true` |
-| **Driver Property** | `encrypt=false` |
+| Database | Microsoft SQL Server |
+| Host | localhost |
+| Port | 14332 |
+| Database | CatalogDb |
+| Username | sa |
+| Password | StrongPassword!123 |
+| Driver Property | trustServerCertificate=true |
+| Driver Property | encrypt=false |
 
 #### Queries de Teste:
 ```sql
@@ -187,9 +187,9 @@ SELECT * FROM UserLibraries;
 ## ?? RabbitMQ Integration
 
 ### Consumidor Configurado
-- **Queue**: `catalog-payment-processed`
-- **Consumer**: `PaymentProcessedConsumer`
-- **Event**: `PaymentProcessedEvent`
+- Queue: catalog-payment-processed
+- Consumer: PaymentProcessedConsumer
+- Event: PaymentProcessedEvent
 
 ### Testar Integração com RabbitMQ
 
@@ -202,11 +202,11 @@ kubectl port-forward service/rabbitmq 15672:15672
 
 #### 2. Publicar Mensagem de Teste
 Na UI do RabbitMQ:
-1. Vá em **Queues** ? `catalog-payment-processed`
-2. Clique em **Publish message**
+1. Vá em Queues ? catalog-payment-processed
+2. Clique em Publish message
 3. Configure:
-   - **Content type**: `application/vnd.masstransit+json`
-   - **Delivery mode**: `2 (persistent)`
+   - Content type: application/vnd.masstransit+json
+   - Delivery mode: 2 (persistent)
 4. Cole o payload:
 
 ```json
@@ -253,10 +253,10 @@ curl http://localhost:8080/health/ready
 
 ### Testes Completos
 Para mais informações sobre testes:
-- ? Payloads de exemplo para API REST
-- ?? Autenticação JWT (simplificada para demo)
-- ?? Integração com RabbitMQ
-- ?? Health checks disponíveis
+- Payloads de exemplo para API REST
+- Autenticação JWT (simplificada para demo)
+- Integração com RabbitMQ
+- Health checks disponíveis
 
 ---
 
@@ -270,14 +270,14 @@ CatalogAPI/
 ??? Application/          # Services
 ?   ??? Services/
 ?       ??? GameService.cs
-??? Domain/              # Entities & Events
+??? Domain/               # Entities & Events
 ?   ??? Entities/
 ?   ?   ??? Game.cs
 ?   ?   ??? UserLibraryEntry.cs
 ?   ?   ??? OrderGame.cs
 ?   ??? Events/
 ?       ??? OrderPlacedEvent.cs
-??? Infrastructure/      # Repositories, Consumers, Persistence
+??? Infrastructure/       # Repositories, Consumers, Persistence
 ?   ??? Persistence/
 ?   ?   ??? CatalogDbContext.cs
 ?   ??? Repositories/
@@ -286,20 +286,28 @@ CatalogAPI/
 ?   ?   ??? OrderGameRepository.cs
 ?   ??? Consumers/
 ?       ??? PaymentProcessedConsumer.cs
-??? Migrations/          # EF Core Migrations
+??? Migrations/           # EF Core Migrations
 ?   ??? 20260118234430_Initial.cs
-??? k8s/                # Kubernetes manifests
-?   ??? deployment.yaml
-?   ??? configmap.yaml
-?   ??? secret.yaml
-?   ??? sql-catalog-secret.yml
-?   ??? sql-catalog-deployment.yml
-?   ??? sql-catalog-service.yml
-?   ??? apply-all.ps1          # Script de deploy completo
-?   ??? rebuild-and-deploy.ps1 # Script de rebuild
-?   ??? prepare-dbeaver.ps1    # Script de preparação DBeaver
-??? Dockerfile          # Multi-stage build otimizado
-??? Program.cs          # Configuração da aplicação
+??? k8s/                  # Kubernetes manifests (organizado por app)
+?   ??? namespace.yaml
+?   ??? services/                  # Services/Ingress/etc.
+?   ?   ??? rabbitmq-service.yaml
+?   ?   ??? sql-catalog-service.yaml
+?   ?   ??? catalogapi-service.yaml
+?   ??? catalog-api/               # Manifests do CatalogAPI
+?   ?   ??? deployment.yaml
+?   ?   ??? configmap.yaml
+?   ?   ??? secret.yaml
+?   ?   ??? hpa.yaml               # (se aplicável)
+?   ??? sql-catalog/               # Manifests do SQL Server
+?   ?   ??? deployment.yaml
+?   ?   ??? secret.yaml
+?   ?   ??? pvc.yaml               # (se aplicável)
+?   ??? apply-all.ps1              # Script de deploy completo
+?   ??? rebuild-and-deploy.ps1     # Script de rebuild
+?   ??? prepare-dbeaver.ps1        # Script de preparação DBeaver
+??? Dockerfile             # Multi-stage build otimizado
+??? Program.cs             # Configuração da aplicação
 ??? README.md
 ```
 
@@ -322,7 +330,7 @@ kubectl describe pod -l app=catalogapi
 ```
 
 ### Erro: ErrImageNeverPull
-? **RESOLVIDO**: O deployment agora usa `imagePullPolicy: IfNotPresent`
+? RESOLVIDO: O deployment agora usa imagePullPolicy: IfNotPresent
 
 **Como corrigir:**
 ```powershell
@@ -335,25 +343,23 @@ kubectl delete pod -l app=catalogapi
 ```
 
 ### Erro: Cannot open database "CatalogDb"
-? **RESOLVIDO**: Use o script `prepare-dbeaver.ps1`
+? RESOLVIDO: Crie o banco e reinicie o pod
 
 **Causa**: Banco não foi criado ou migrations não rodaram
 
 **Solução:**
 ```powershell
-# Opção 1: Script automático
-cd k8s
-.\prepare-dbeaver.ps1
-
-# Opção 2: Manual
+# Criar banco manualmente
 kubectl exec sql-catalog-pod-name -- /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "StrongPassword!123" -C -Q "CREATE DATABASE CatalogDb;"
+
+# Reiniciar pod do CatalogAPI para rodar migrations
 kubectl delete pod -l app=catalogapi
 ```
 
 ### Erro: Permission denied (porta 80)
-? **RESOLVIDO**: O container usa porta 8080
+? RESOLVIDO: O container usa porta 8080
 
-- `ASPNETCORE_URLS=http://+:8080`
+- ASPNETCORE_URLS=http://+:8080
 - Container expõe porta 8080
 - Service mapeia 80 ? 8080
 
@@ -362,7 +368,7 @@ kubectl delete pod -l app=catalogapi
 MT-Fault-Message: Value cannot be null. (Parameter 'envelope')
 ```
 
-? **RESOLVIDO**: Use o formato correto do MassTransit (veja seção RabbitMQ Integration)
+? RESOLVIDO: Use o formato correto do MassTransit (veja seção RabbitMQ Integration)
 
 ### Migrations não rodaram
 ```powershell
@@ -399,35 +405,35 @@ kubectl delete -f k8s/
 - ? Container roda como usuário não-root (`USER app`)
 - ? Secrets separados do código
 - ? Resource limits configurados (128Mi-512Mi RAM, 100m-500m CPU)
-- ?? JWT key é demo - **MUDE EM PRODUÇÃO**
-- ?? Senha SQL Server é demo - **MUDE EM PRODUÇÃO**
-- ?? `trustServerCertificate=true` - **Use certificados válidos em produção**
+- ?? JWT key é demo - MUDE EM PRODUÇÃO
+- ?? Senha SQL Server é demo - MUDE EM PRODUÇÃO
+- ?? trustServerCertificate=true - Use certificados válidos em produção
 
 ---
 
 ## ?? Notas Técnicas
 
 ### Armazenamento de Dados
-- ?? **SQL Server**: Dados armazenados em SQL Server 2019
-- ?? **emptyDir**: Volume temporário (dados perdidos ao deletar pod)
-- ?? **Demo**: Para produção, use PersistentVolumeClaim (PVC)
+- ?? SQL Server: Dados armazenados em SQL Server 2019
+- ?? emptyDir: Volume temporário (dados perdidos ao deletar pod)
+- ?? Demo: Para produção, use PersistentVolumeClaim (PVC)
 
 ### Entity Framework Core
-- ?? **ORM**: Entity Framework Core 8.0
-- ?? **Migrations**: Aplicadas automaticamente no startup
-- ??? **Contexto**: `CatalogDbContext`
-- ??? **Code First**: Modelagem de dados no código C#
+- ?? ORM: Entity Framework Core 8.0
+- ?? Migrations: Aplicadas automaticamente no startup
+- ??? Contexto: CatalogDbContext
+- ??? Code First: Modelagem de dados no código C#
 
 ### MassTransit + RabbitMQ
 - ?? Usa MassTransit 8.0 para abstração do RabbitMQ
-- ?? Consumer: `PaymentProcessedConsumer`
-- ?? Queue: `catalog-payment-processed`
-- ?? Publica: `OrderPlacedEvent`
+- ?? Consumer: PaymentProcessedConsumer
+- ?? Queue: catalog-payment-processed
+- ?? Publica: OrderPlacedEvent
 
 ### Autenticação
 - ?? JWT Bearer Token
-- ?? **Simplificada**: Não valida issuer/audience (apenas demo)
-- ?? Secret: `very_secret_demo_key_please_change`
+- ?? Simplificada: Não valida issuer/audience (apenas demo)
+- ?? Secret: very_secret_demo_key_please_change
 
 ---
 
@@ -443,7 +449,7 @@ volumes:
 ```
 
 ### Health Checks
-Habilite health checks no `deployment.yaml`:
+Habilite health checks no deployment.yaml:
 ```yaml
 livenessProbe:
   httpGet:
@@ -469,5 +475,3 @@ readinessProbe:
 - Adicione Application Insights
 - Configure logs estruturados
 - Implemente tracing distribuído
-
----
