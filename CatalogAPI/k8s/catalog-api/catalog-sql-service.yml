@@ -2,6 +2,7 @@
 kind: Service
 metadata:
   name: sql-catalog
+  namespace: microservices
 spec:
   selector:
     app: sql-catalog
