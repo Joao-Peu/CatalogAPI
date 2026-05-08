@@ -120,6 +120,13 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
+// Redis
+builder.Services.AddStackExchangeRedisCache(options =>
+{
+    options.Configuration = builder.Configuration["Redis:ConnectionString"];
+    options.InstanceName = "FCG_Catalog_";
+});
+
 var app = builder.Build();
 
 // Ensure database created and seed demo data

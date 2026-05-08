@@ -1,5 +1,6 @@
 using CatalogAPI.Application.Services;
 using CatalogAPI.Domain.Entities;
+using CatalogAPI.Infrastructure.Search;
 using MassTransit;
 using Microsoft.AspNetCore.Authentication.OAuth.Claims;
 using Microsoft.AspNetCore.Authorization;
@@ -14,11 +15,15 @@ namespace CatalogAPI.Controllers;
 public class GamesController : ControllerBase
 {
     private readonly GameService _service;
+    private readonly GameCacheService _cacheService;
+    private readonly GameSearchService _searchService;
     private readonly IPublishEndpoint _publisher;
 
-    public GamesController(GameService service, IPublishEndpoint publisher)
+    public GamesController(GameService service, GameCacheService cacheService, GameSearchService gameSearchService, IPublishEndpoint publisher)
     {
         _service = service;
+        _cacheService = cacheService;
+        _searchService = gameSearchService;
         _publisher = publisher;
     }
 
@@ -36,8 +41,10 @@ public class GamesController : ControllerBase
     [HttpPost]
     [Authorize]
     public async Task<IActionResult> Create([FromBody] Game game)
-    {
+    {        
         var created = await _service.CreateAsync(game);
+        await _searchService.IndexGameAsync(game); // sempre indexar no search
+        await _cacheService.InvalidateCacheAsync(); // sempre invalidar cache
         return CreatedAtAction(nameof(Get), new { id = created.Id }, created);
     }
 
@@ -46,9 +53,11 @@ public class GamesController : ControllerBase
     public async Task<IActionResult> Update(Guid id, [FromBody] Game game)
     {
         var existing = await _service.GetAsync(id);
-        if (existing == null) return NotFound();
+        if (existing == null) return NotFound();        
         game.Id = id;
         await _service.UpdateAsync(game);
+        await _searchService.IndexGameAsync(game); // sempre indexar no search
+        await _cacheService.InvalidateCacheAsync(); // sempre invalidar cache
         return NoContent();
     }
 
@@ -77,5 +86,14 @@ public class GamesController : ControllerBase
         }   
 
         return Accepted();
+    }
+
+    [HttpGet("search")]
+    public async Task<IActionResult> Search([FromQuery] string q)
+    {
+        if (string.IsNullOrWhiteSpace(q))
+            return BadRequest("Query param 'q' é obrigatório");
+        var results = await _searchService.SearchAsync(q);
+        return Ok(results);
     }
 }
