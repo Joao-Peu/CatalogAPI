@@ -1,72 +1,112 @@
 apiVersion: apps/v1
 kind: Deployment
+
 metadata:
-  name: catalogapi
-  namespace: microservices
+  name: fcg-catalog
+  namespace: fcg
+  labels:
+    app: fcg-catalog
+
 spec:
-  replicas: 1
+  replicas: 2
+
   selector:
     matchLabels:
-      app: catalogapi
+      app: fcg-catalog
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+
   template:
     metadata:
       labels:
-        app: catalogapi
+        app: fcg-catalog
+        azure.workload.identity/use: "true"
+
     spec:
+      serviceAccountName: sa-fcg-catalog
+
+      imagePullSecrets:
+        - name: acr-secret
+
+      volumes:
+        - name: secrets-store
+          csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: fcg-catalog-secrets
+
       containers:
-        - name: catalogapi
-          image: catalog-api:latest
-          imagePullPolicy: IfNotPresent
+        - name: fcg-catalog
+
+          image: fcgregistry.azurecr.io/fcg-catalog:latest
+          imagePullPolicy: Always
+
           ports:
             - containerPort: 8080
 
-          resources:
-            requests:
-              memory: "128Mi"
-              cpu: "100m"
-            limits:
-              memory: "512Mi"
-              cpu: "500m"
+          volumeMounts:
+            - name: secrets-store
+              mountPath: /mnt/secrets
+              readOnly: true
 
           env:
             - name: ASPNETCORE_ENVIRONMENT
-              valueFrom:
-                configMapKeyRef:
-                  name: catalog-api-config
-                  key: ASPNETCORE_ENVIRONMENT
-        
-            - name: ASPNETCORE_URLS
-              valueFrom:
-                configMapKeyRef:
-                  name: catalog-api-config
-                  key: ASPNETCORE_URLS
+              value: Production
 
-            - name: RabbitMQ__Host
-              valueFrom:
-                configMapKeyRef:
-                  name: rabbitmq-config
-                  key: hostname
-
-            - name: RabbitMQ__Username
+            - name: Redis__ConnectionString
               valueFrom:
                 secretKeyRef:
-                  name: rabbitmq-credentials
-                  key: username
+                  name: fcg-catalog-secret
+                  key: Redis__ConnectionString
 
-            - name: RabbitMQ__Password
+            - name: MongoDB__ConnectionString
               valueFrom:
                 secretKeyRef:
-                  name: rabbitmq-credentials
-                  key: password
+                  name: fcg-catalog-secret
+                  key: MongoDB__ConnectionString
 
-            - name: JWT__Key
+            - name: AzureSearch__Endpoint
               valueFrom:
                 secretKeyRef:
-                  name: jwt-secret
-                  key: key
+                  name: fcg-catalog-secret
+                  key: AzureSearch__Endpoint
 
-            - name: ConnectionStrings__CatalogDb
+            - name: AzureSearch__ApiKey
               valueFrom:
                 secretKeyRef:
-                  name: catalogapi-secret
-                  key: ConnectionStrings__CatalogDb
+                  name: fcg-catalog-secret
+                  key: AzureSearch__ApiKey
+
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+
+            limits:
+              cpu: 500m
+              memory: 256Mi
+
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 8080
+
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 8080
+
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 6
