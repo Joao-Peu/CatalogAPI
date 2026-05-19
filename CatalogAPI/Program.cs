@@ -17,10 +17,21 @@ var builder = WebApplication.CreateBuilder(args);
 // JWT key from configuration
 var jwtKey = builder.Configuration["JWT:Key"] ?? "very_secret_demo_key_please_change";
 
-var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__CatalogDb") 
-    ?? builder.Configuration.GetConnectionString("CatalogDb")
-    ?? builder.Configuration["ConnectionStrings:CatalogDb"]
-    ?? throw new InvalidOperationException("Missing ConnectionStrings:CatalogDb. Set it via appsettings or environment variables.");
+//
+// ✅ FIX PRINCIPAL AQUI
+// Pega direto do Kubernetes Secret (CSI Driver)
+//
+var connectionString =
+    Environment.GetEnvironmentVariable("ConnectionStrings__Default")
+    ?? builder.Configuration["ConnectionStrings:Default"]
+    ?? throw new InvalidOperationException(
+        "Missing ConnectionStrings__Default. Check KeyVault + CSI SecretProviderClass."
+    );
+
+//var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__CatalogDb") 
+ //   ?? builder.Configuration.GetConnectionString("CatalogDb")
+ //   ?? builder.Configuration["ConnectionStrings:CatalogDb"]
+ //   ?? throw new InvalidOperationException("Missing ConnectionStrings:CatalogDb. Set it via appsettings or environment variables.");
 
 // Add services to the container.
 builder.Services.AddControllers();
