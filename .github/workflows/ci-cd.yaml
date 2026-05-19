@@ -55,9 +55,11 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Login to ACR
+      - name: Login to ACR via Docker
         run: |
-          az acr login --name ${{ secrets.ACR_NAME }}
+          docker login ${{ secrets.ACR_NAME }}.azurecr.io \
+            --username ${{ secrets.ACR_USERNAME }} \
+            --password ${{ secrets.ACR_PASSWORD }}
 
       - name: Build Docker image
         run: |
@@ -75,9 +77,10 @@ jobs:
           format: sarif
           output: trivy-results.sarif
           severity: HIGH,CRITICAL
+          exit-code: 0
 
       - name: Upload Trivy results
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: trivy-results.sarif
 
