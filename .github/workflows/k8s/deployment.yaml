@@ -1,0 +1,112 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: fcg-catalog
+  namespace: fcg
+  labels:
+    app: fcg-catalog
+
+spec:
+  replicas: 2
+
+  selector:
+    matchLabels:
+      app: fcg-catalog
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+
+  template:
+    metadata:
+      labels:
+        app: fcg-catalog
+        azure.workload.identity/use: "true"
+
+    spec:
+      serviceAccountName: sa-fcg-catalog
+
+      imagePullSecrets:
+        - name: acr-secret
+
+      volumes:
+        - name: secrets-store
+          csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: fcg-catalog-secrets
+
+      containers:
+        - name: fcg-catalog
+
+          image: fcgregistry.azurecr.io/fcg-catalog:latest
+          imagePullPolicy: Always
+
+          ports:
+            - containerPort: 8080
+
+          volumeMounts:
+            - name: secrets-store
+              mountPath: /mnt/secrets
+              readOnly: true
+
+          env:
+            - name: ASPNETCORE_ENVIRONMENT
+              value: Production
+
+            - name: Redis__ConnectionString
+              valueFrom:
+                secretKeyRef:
+                  name: fcg-catalog-secret
+                  key: Redis__ConnectionString
+
+            - name: MongoDB__ConnectionString
+              valueFrom:
+                secretKeyRef:
+                  name: fcg-catalog-secret
+                  key: MongoDB__ConnectionString
+
+            - name: AzureSearch__Endpoint
+              valueFrom:
+                secretKeyRef:
+                  name: fcg-catalog-secret
+                  key: AzureSearch__Endpoint
+
+            - name: AzureSearch__ApiKey
+              valueFrom:
+                secretKeyRef:
+                  name: fcg-catalog-secret
+                  key: AzureSearch__ApiKey
+
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+
+            limits:
+              cpu: 500m
+              memory: 256Mi
+
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 8080
+
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 8080
+
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 6
