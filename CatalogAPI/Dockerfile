@@ -30,7 +30,6 @@ ENV ASPNETCORE_URLS=http://+:8080 \
 EXPOSE 8080
 
 # (opcional mas recomendado: cria usuário se não existir)
-RUN addgroup --system app && adduser --system --ingroup app app
 USER app
 
 ENTRYPOINT ["dotnet", "CatalogAPI.dll"]
