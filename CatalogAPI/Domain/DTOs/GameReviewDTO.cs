@@ -2,6 +2,9 @@
 
 namespace CatalogAPI.Domain.DTOs
 {
+    /// <summary>
+    /// DTO GameReviewDTO
+    /// </summary>
     public class GameReviewDTO
     {
         public int Rating { get; set; }        
