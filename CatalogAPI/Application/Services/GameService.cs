@@ -14,6 +14,7 @@ public class GameService(IGameRepository gameRepo, IUserLibraryRepository librar
 
     public async Task<Game> CreateAsync(Game game)
     {
+        // Apenas para testar o CI/CD do Github e mostrar o deploy
         game.Id = Guid.NewGuid();
         await gameRepo.AddAsync(game);
         return game;
