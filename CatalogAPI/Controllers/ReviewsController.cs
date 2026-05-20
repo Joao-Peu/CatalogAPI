@@ -13,6 +13,11 @@ public class ReviewsController : ControllerBase
 {
     private readonly GameReviewRepository _reviewRepo;
 
+    /// <summary>
+    /// Retorna todas as avaliações de um jogo específico, identificando-o pelo gameId. Cada avaliação inclui a nota, comentário e o nome do usuário que fez a avaliação.
+    /// </summary>
+    /// <param name="gameId"></param>
+    /// <returns></returns>
     [HttpGet]
     public async Task<IActionResult> Get(Guid gameId)
         => Ok(await _reviewRepo.GetByGameIdAsync(gameId));
